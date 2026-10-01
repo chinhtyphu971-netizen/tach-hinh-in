@@ -86,6 +86,27 @@
   </header>
 
   <div class="card">
+    <h2><span>🍌 Cách miễn phí: tạo ảnh sạch bằng Gemini trước</span></h2>
+    <ol class="img-hint" style="font-size:13px;margin:0 0 10px;padding-left:18px;">
+      <li>Mở <a href="https://gemini.google.com/app" target="_blank" rel="noopener">gemini.google.com</a>, bấm <b>+</b> tải ảnh áo lên.</li>
+      <li>Bấm <b>Công cụ → Tạo hình ảnh</b> (nếu có), rồi dán câu lệnh bên dưới và gửi.</li>
+      <li>Tải ảnh Gemini trả về, thả vào Bước 1 bên dưới, bấm <b>🧽 Chỉ xóa nền</b>.</li>
+    </ol>
+    <div class="field-row">
+      <textarea id="geminiPrompt" readonly style="min-height:150px;">Hãy CHỈNH SỬA ẢNH này và XUẤT RA MỘT ẢNH MỚI (bắt buộc trả về ảnh, không trả lời bằng chữ).
+
+Nhiệm vụ: tách riêng hình in trên áo thành file thiết kế sạch để đưa đi in.
+- Chỉ giữ đúng phần hình in. Bỏ hoàn toàn áo, vải, nếp nhăn, nền phía sau, bóng đổ, tay người.
+- Làm phẳng hình như đang nhìn thẳng vào mặt phẳng, sửa hết méo do nếp vải và góc chụp.
+- Giữ nguyên bố cục, tỉ lệ, màu sắc và mọi chi tiết của hình gốc, không thêm hay bớt chi tiết.
+- Nét viền rõ, sắc, màu phẳng và đều như file vector gốc, không nhiễu, không mờ.
+- Đặt hình ở giữa, trên nền TRẮNG TRƠN TUYỆT ĐỐI (#FFFFFF). Không vẽ ô caro, không viền, không bóng, không khung.
+- Ảnh vuông, độ phân giải cao nhất có thể.</textarea>
+    </div>
+    <button class="btn ghost full" id="copyPromptBtn">📋 Copy câu lệnh cho Gemini</button>
+  </div>
+
+  <div class="card">
     <h2><span><span class="step-num">1</span>Ảnh chụp áo</span></h2>
     <div class="drop-zone" id="dropZone">
       <input type="file" id="fileInput" accept="image/*">
@@ -99,6 +120,8 @@
       <textarea id="promptInput">Trích xuất và làm sạch hình in trên áo trong ảnh này. Yêu cầu: chỉ giữ lại đúng phần hình in (bỏ hoàn toàn áo, nền, bóng đổ), làm phẳng hình như đang nhìn thẳng vào mặt phẳng (loại bỏ méo do nếp nhăn vải), giữ nguyên màu sắc và chi tiết gốc, đặt trên nền trắng trơn tuyệt đối (#FFFFFF), không vẽ ô caro, không thêm bóng hay viền, phong cách sạch như file thiết kế gốc để đưa đi in.</textarea>
     </div>
     <button class="btn primary full" id="runBtn">✂️ Tách & làm sạch hình in</button>
+    <button class="btn ghost full" id="bgOnlyBtn" style="margin-top:8px;">🧽 Chỉ xóa nền → PNG trong suốt (miễn phí, không dùng AI)</button>
+    <p class="img-hint">Dùng nút này khi ảnh đã sạch sẵn trên nền trắng (ví dụ ảnh tải về từ Gemini).</p>
     <div class="status-box" id="statusBox"></div>
   </div>
 
@@ -348,6 +371,28 @@
     return out;
   }
   function clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : Math.round(v); }
+
+  $('copyPromptBtn').addEventListener('click', function () {
+    var ta = $('geminiPrompt'), btn = $('copyPromptBtn');
+    function done() { btn.textContent = '✅ Đã copy! Dán vào Gemini'; setTimeout(function () { btn.textContent = '📋 Copy câu lệnh cho Gemini'; }, 2500); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(done, function () { ta.select(); document.execCommand('copy'); done(); });
+    } else { ta.select(); document.execCommand('copy'); done(); }
+  });
+
+  $('bgOnlyBtn').addEventListener('click', function () {
+    if (!selectedFile) { showStatus('error', 'Chưa chọn ảnh. Chọn ảnh ở Bước 1 trước đã.'); return; }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      aiDataUrl = e.target.result;
+      $('transparentChk').checked = true;
+      $('resultCard').style.display = '';
+      loadAiImage(aiDataUrl);
+      showStatus('success', '✅ Đã xóa nền. Xem kết quả bên dưới, chỉnh thanh "Độ mạnh xóa nền" nếu cần.');
+      $('resultCard').scrollIntoView({ behavior: 'smooth' });
+    };
+    reader.readAsDataURL(selectedFile);
+  });
 
   $('transparentChk').addEventListener('change', renderResult);
   $('trimChk').addEventListener('change', renderResult);

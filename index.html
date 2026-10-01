@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tách hình in khỏi ảnh áo</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✂️</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f2f0e9; --paper-raised: #ffffff; --ink: #211f1a; --ink-soft: #63594a;
+    --line: #ddd7c8; --denim: #33506e; --thread: #d99a2b; --stitch: #b0523f; --ok: #4a7a4f;
+    --radius-tag: 10px; --radius-pill: 999px;
+    --shadow-card: 0 1px 0 rgba(33,31,26,0.05), 0 6px 16px -10px rgba(33,31,26,0.25);
+    --font-display: 'Space Grotesk', system-ui, sans-serif; --font-body: 'Inter', system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--paper); color: var(--ink); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px 64px; }
+
+  header.top { padding: 6px 4px 20px; border-bottom: 2px solid var(--line); margin-bottom: 22px; }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: 24px; margin: 0 0 4px; display: flex; align-items: center; gap: 9px; }
+  h1 .tag-dot { width: 11px; height: 11px; border-radius: 3px; background: var(--thread); display: inline-block; transform: rotate(45deg); flex-shrink: 0; }
+  .subtitle { color: var(--ink-soft); font-size: 14px; margin: 0; line-height: 1.5; }
+
+  .card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius-tag); box-shadow: var(--shadow-card); padding: 18px; margin-bottom: 18px; }
+  .card h2 { font-family: var(--font-display); font-size: 15.5px; margin: 0 0 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .card h2 .step-num { background: var(--denim); color: #fff; width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; margin-right: 8px; }
+
+  .field-row { margin-bottom: 10px; }
+  .field-row label { display: block; font-size: 12.5px; color: var(--ink-soft); margin-bottom: 5px; }
+  .field-row input[type=password], .field-row input[type=text], .field-row textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 8px; padding: 9px 11px; font-size: 14.5px;
+    font-family: var(--font-body); background: var(--paper); color: var(--ink);
+  }
+  .field-row textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+  .key-row { display: flex; gap: 8px; align-items: flex-end; }
+  .key-row .field-row { flex: 1; margin-bottom: 0; }
+  .key-status { font-size: 12px; margin-top: 8px; }
+  .key-status.ok { color: var(--ok); }
+  .key-status.none { color: var(--ink-soft); }
+
+  button.btn { font-family: var(--font-body); font-weight: 600; font-size: 13.5px; border-radius: var(--radius-pill); padding: 10px 18px; border: 1px solid transparent; cursor: pointer; }
+  button.btn.primary { background: var(--denim); color: #fff; }
+  button.btn.ghost { background: none; border-color: var(--line); color: var(--ink); }
+  button.btn.full { width: 100%; }
+  button.btn:disabled { opacity: .5; cursor: default; }
+
+  .drop-zone {
+    border: 2px dashed var(--line); border-radius: var(--radius-tag); padding: 28px 16px; text-align: center;
+    cursor: pointer; position: relative; color: var(--ink-soft); font-size: 13.5px; background: var(--paper);
+  }
+  .drop-zone.has-file { padding: 12px; }
+  .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-zone img { max-width: 100%; max-height: 260px; border-radius: 8px; display: block; margin: 0 auto; }
+  .drop-zone .dz-icon { font-size: 30px; margin-bottom: 8px; }
+
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 520px) { .result-grid { grid-template-columns: 1fr; } }
+  .result-col { text-align: center; }
+  .result-col .result-label { font-size: 12px; color: var(--ink-soft); margin-bottom: 6px; font-weight: 600; }
+  .result-col img { width: 100%; border-radius: 10px; border: 1px solid var(--line); background: repeating-conic-gradient(#e8e4d8 0% 25%, #f2f0e9 0% 50%) 50% / 16px 16px; }
+
+  .status-box { font-size: 13px; padding: 12px 14px; border-radius: 8px; margin-top: 12px; display: none; line-height: 1.5; }
+  .status-box.show { display: block; }
+  .status-box.info { background: #eef2f6; color: var(--denim); }
+  .status-box.error { background: #fbeceA; color: var(--stitch); }
+  .status-box.success { background: #eaf3ea; color: var(--ok); }
+
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .img-hint { font-size: 12px; color: var(--ink-soft); margin: 8px 0 0; line-height: 1.5; }
+  .img-hint a { color: var(--denim); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1><span class="tag-dot"></span>Tách hình in khỏi ảnh áo</h1>
+    <p class="subtitle">Đưa ảnh chụp áo lên, AI sẽ cố tách riêng phần hình in, làm phẳng và bỏ nền để có file sạch hơn đưa qua xưởng in.</p>
+  </header>
+
+  <div class="card">
+    <h2><span><span class="step-num">1</span>Mã API key (OpenAI)</span></h2>
+    <div class="key-row">
+      <div class="field-row">
+        <label>Dán API key của anh (chỉ lưu trên máy này, không gửi đi đâu khác ngoài OpenAI)</label>
+        <input type="password" id="apiKeyInput" placeholder="sk-...">
+      </div>
+      <button class="btn primary" id="saveKeyBtn">Lưu</button>
+    </div>
+    <div class="key-status none" id="keyStatus">Chưa có key nào được lưu.</div>
+    <p class="img-hint">Chưa có key? Lấy tại <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a> (cần thêm phương thức thanh toán trước ở mục Billing).</p>
+  </div>
+
+  <div class="card">
+    <h2><span><span class="step-num">2</span>Ảnh chụp áo</span></h2>
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="fileInput" accept="image/*">
+      <div id="dropZoneContent"><div class="dz-icon">🖼️</div>Bấm hoặc kéo ảnh vào đây</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span><span class="step-num">3</span>Mô tả cho AI (có thể để mặc định)</span></h2>
+    <div class="field-row">
+      <textarea id="promptInput">Trích xuất và làm sạch hình in trên áo trong ảnh này. Yêu cầu: chỉ giữ lại đúng phần hình in (bỏ hoàn toàn áo, nền, bóng đổ), làm phẳng hình như đang nhìn thẳng vào mặt phẳng (loại bỏ méo do nếp nhăn vải), giữ nguyên màu sắc và chi tiết gốc, nền trong suốt hoặc trắng trơn, phong cách sạch như file thiết kế gốc để đưa đi in.</textarea>
+    </div>
+    <button class="btn primary full" id="runBtn">✂️ Tách & làm sạch hình in</button>
+    <div class="status-box" id="statusBox"></div>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none;">
+    <h2>Kết quả</h2>
+    <div class="result-grid">
+      <div class="result-col"><div class="result-label">Ảnh gốc</div><img id="originalPreview" alt=""></div>
+      <div class="result-col"><div class="result-label">Hình đã tách</div><img id="resultPreview" alt=""></div>
+    </div>
+    <button class="btn ghost full" id="downloadBtn" style="margin-top:14px;">💾 Tải ảnh kết quả</button>
+    <p class="img-hint">AI có thể không hoàn hảo 100% — nếu kết quả chưa ưng, thử sửa lại mô tả ở bước 3 rồi bấm tách lại, hoặc đổi sang ảnh chụp rõ nét/thẳng góc hơn.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  var KEY_STORAGE = 'tach_hinh_in_api_key';
+  var selectedFile = null;
+  var resultDataUrl = null;
+
+  function $(id) { return document.getElementById(id); }
+  function showStatus(type, html) {
+    var box = $('statusBox');
+    box.className = 'status-box show ' + type;
+    box.innerHTML = html;
+  }
+  function hideStatus() { $('statusBox').classList.remove('show'); }
+
+  function refreshKeyStatus() {
+    var key = localStorage.getItem(KEY_STORAGE);
+    var el = $('keyStatus');
+    if (key) {
+      el.textContent = 'Đã lưu key (••••' + key.slice(-4) + ') trên máy này.';
+      el.className = 'key-status ok';
+    } else {
+      el.textContent = 'Chưa có key nào được lưu.';
+      el.className = 'key-status none';
+    }
+  }
+  $('apiKeyInput').value = localStorage.getItem(KEY_STORAGE) || '';
+  refreshKeyStatus();
+
+  $('saveKeyBtn').addEventListener('click', function () {
+    var v = $('apiKeyInput').value.trim();
+    if (!v) { localStorage.removeItem(KEY_STORAGE); refreshKeyStatus(); return; }
+    localStorage.setItem(KEY_STORAGE, v);
+    refreshKeyStatus();
+  });
+
+  // ---- chọn ảnh ----
+  var dropZone = $('dropZone'), fileInput = $('fileInput');
+  function handleFile(file) {
+    if (!file || file.type.indexOf('image/') !== 0) return;
+    selectedFile = file;
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      dropZone.classList.add('has-file');
+      $('dropZoneContent').innerHTML = '<img src="' + e.target.result + '" alt="">';
+      $('originalPreview').src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  fileInput.addEventListener('change', function (e) { handleFile(e.target.files[0]); });
+  dropZone.addEventListener('dragover', function (e) { e.preventDefault(); dropZone.style.borderColor = 'var(--denim)'; });
+  dropZone.addEventListener('dragleave', function () { dropZone.style.borderColor = ''; });
+  dropZone.addEventListener('drop', function (e) {
+    e.preventDefault(); dropZone.style.borderColor = '';
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  });
+
+  // ---- gọi OpenAI để tách/làm sạch hình in ----
+  $('runBtn').addEventListener('click', function () {
+    var apiKey = localStorage.getItem(KEY_STORAGE);
+    if (!apiKey) { showStatus('error', 'Chưa có API key. Dán key vào ô ở Bước 1 rồi bấm Lưu.'); return; }
+    if (!selectedFile) { showStatus('error', 'Chưa chọn ảnh. Chọn ảnh ở Bước 2 trước đã.'); return; }
+
+    var prompt = $('promptInput').value.trim();
+    var btn = $('runBtn');
+    btn.disabled = true;
+    showStatus('info', '<span class="spinner"></span>Đang gửi ảnh cho AI xử lý, có thể mất 15–40 giây...');
+
+    var form = new FormData();
+    form.append('model', 'gpt-image-1');
+    form.append('image', selectedFile);
+    form.append('prompt', prompt);
+    form.append('size', '1024x1024');
+
+    fetch('https://api.openai.com/v1/images/edits', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + apiKey },
+      body: form
+    }).then(function (res) {
+      if (!res.ok) {
+        return res.json().catch(function () { return {}; }).then(function (errBody) {
+          var msg = (errBody && errBody.error && errBody.error.message) || ('Lỗi HTTP ' + res.status);
+          throw new Error(msg);
+        });
+      }
+      return res.json();
+    }).then(function (data) {
+      var b64 = data && data.data && data.data[0] && data.data[0].b64_json;
+      if (!b64) throw new Error('Không nhận được ảnh kết quả từ OpenAI.');
+      resultDataUrl = 'data:image/png;base64,' + b64;
+      $('resultPreview').src = resultDataUrl;
+      $('resultCard').style.display = '';
+      showStatus('success', '✅ Xong! Xem kết quả bên dưới.');
+      btn.disabled = false;
+    }).catch(function (err) {
+      btn.disabled = false;
+      var hint = '';
+      if (/CORS|Failed to fetch/i.test(err.message)) {
+        hint = ' (Có thể do trình duyệt chặn gọi thẳng tới OpenAI — báo lại cho người làm app để thêm máy chủ trung gian.)';
+      } else if (/insufficient_quota|billing/i.test(err.message)) {
+        hint = ' (Có thể tài khoản OpenAI chưa thêm phương thức thanh toán hoặc đã hết hạn mức.)';
+      } else if (/invalid_api_key|Incorrect API key/i.test(err.message)) {
+        hint = ' (Kiểm tra lại đã dán đúng/đủ API key chưa.)';
+      }
+      showStatus('error', '❌ Lỗi: ' + esc(err.message) + hint);
+    });
+  });
+
+  $('downloadBtn').addEventListener('click', function () {
+    if (!resultDataUrl) return;
+    var a = document.createElement('a');
+    a.href = resultDataUrl;
+    a.download = 'hinh-in-da-tach.png';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+})();
+</script>
+</body>
+</html>

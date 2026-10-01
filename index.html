@@ -37,11 +37,6 @@
     font-family: var(--font-body); background: var(--paper); color: var(--ink);
   }
   .field-row textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
-  .key-row { display: flex; gap: 8px; align-items: flex-end; }
-  .key-row .field-row { flex: 1; margin-bottom: 0; }
-  .key-status { font-size: 12px; margin-top: 8px; }
-  .key-status.ok { color: var(--ok); }
-  .key-status.none { color: var(--ink-soft); }
 
   button.btn { font-family: var(--font-body); font-weight: 600; font-size: 13.5px; border-radius: var(--radius-pill); padding: 10px 18px; border: 1px solid transparent; cursor: pointer; }
   button.btn.primary { background: var(--denim); color: #fff; }
@@ -54,6 +49,7 @@
     cursor: pointer; position: relative; color: var(--ink-soft); font-size: 13.5px; background: var(--paper);
   }
   .drop-zone.has-file { padding: 12px; }
+  .drop-zone:focus { outline: none; border-color: var(--denim); background: #eef2f6; }
   .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
   .drop-zone img { max-width: 100%; max-height: 260px; border-radius: 8px; display: block; margin: 0 auto; }
   .drop-zone .dz-icon { font-size: 30px; margin-bottom: 8px; }
@@ -73,6 +69,11 @@
   .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.4); border-top-color: #fff; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 6px; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .bg-tools { margin-top: 14px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); font-size: 13px; }
+  .bg-tools .check { display: inline-flex; align-items: center; gap: 6px; margin-right: 16px; margin-bottom: 8px; cursor: pointer; }
+  .slider-row { display: flex; align-items: center; gap: 10px; }
+  .slider-row input[type=range] { flex: 1; min-width: 0; accent-color: var(--denim); }
+  .slider-row b { width: 24px; text-align: right; }
   .img-hint { font-size: 12px; color: var(--ink-soft); margin: 8px 0 0; line-height: 1.5; }
   .img-hint a { color: var(--denim); }
 </style>
@@ -85,30 +86,17 @@
   </header>
 
   <div class="card">
-    <h2><span><span class="step-num">1</span>Mã API key (OpenAI)</span></h2>
-    <div class="key-row">
-      <div class="field-row">
-        <label>Dán API key của anh (chỉ lưu trên máy này, không gửi đi đâu khác ngoài OpenAI)</label>
-        <input type="password" id="apiKeyInput" placeholder="sk-...">
-      </div>
-      <button class="btn primary" id="saveKeyBtn">Lưu</button>
-    </div>
-    <div class="key-status none" id="keyStatus">Chưa có key nào được lưu.</div>
-    <p class="img-hint">Chưa có key? Lấy tại <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a> (cần thêm phương thức thanh toán trước ở mục Billing).</p>
-  </div>
-
-  <div class="card">
-    <h2><span><span class="step-num">2</span>Ảnh chụp áo</span></h2>
+    <h2><span><span class="step-num">1</span>Ảnh chụp áo</span></h2>
     <div class="drop-zone" id="dropZone">
       <input type="file" id="fileInput" accept="image/*">
-      <div id="dropZoneContent"><div class="dz-icon">🖼️</div>Bấm hoặc kéo ảnh vào đây</div>
+      <div id="dropZoneContent"><div class="dz-icon">🖼️</div>Bấm hoặc kéo ảnh vào đây<br><span style="font-size:11.5px;">(hoặc bấm vào đây rồi nhấn Ctrl+V để dán ảnh đã copy)</span></div>
     </div>
   </div>
 
   <div class="card">
-    <h2><span><span class="step-num">3</span>Mô tả cho AI (có thể để mặc định)</span></h2>
+    <h2><span><span class="step-num">2</span>Mô tả cho AI (có thể để mặc định)</span></h2>
     <div class="field-row">
-      <textarea id="promptInput">Trích xuất và làm sạch hình in trên áo trong ảnh này. Yêu cầu: chỉ giữ lại đúng phần hình in (bỏ hoàn toàn áo, nền, bóng đổ), làm phẳng hình như đang nhìn thẳng vào mặt phẳng (loại bỏ méo do nếp nhăn vải), giữ nguyên màu sắc và chi tiết gốc, nền trong suốt hoặc trắng trơn, phong cách sạch như file thiết kế gốc để đưa đi in.</textarea>
+      <textarea id="promptInput">Trích xuất và làm sạch hình in trên áo trong ảnh này. Yêu cầu: chỉ giữ lại đúng phần hình in (bỏ hoàn toàn áo, nền, bóng đổ), làm phẳng hình như đang nhìn thẳng vào mặt phẳng (loại bỏ méo do nếp nhăn vải), giữ nguyên màu sắc và chi tiết gốc, đặt trên nền trắng trơn tuyệt đối (#FFFFFF), không vẽ ô caro, không thêm bóng hay viền, phong cách sạch như file thiết kế gốc để đưa đi in.</textarea>
     </div>
     <button class="btn primary full" id="runBtn">✂️ Tách & làm sạch hình in</button>
     <div class="status-box" id="statusBox"></div>
@@ -120,14 +108,23 @@
       <div class="result-col"><div class="result-label">Ảnh gốc</div><img id="originalPreview" alt=""></div>
       <div class="result-col"><div class="result-label">Hình đã tách</div><img id="resultPreview" alt=""></div>
     </div>
+    <div class="bg-tools">
+      <label class="check"><input type="checkbox" id="transparentChk" checked> Xóa nền → PNG trong suốt</label>
+      <label class="check"><input type="checkbox" id="trimChk" checked> Cắt sát hình</label>
+      <div class="slider-row" id="tolRow">
+        <span>Độ mạnh xóa nền</span>
+        <input type="range" id="tolRange" min="5" max="90" value="30">
+        <b id="tolVal">30</b>
+      </div>
+      <p class="img-hint" style="margin-top:4px;">Còn sót viền trắng → kéo thanh sang phải. Bị ăn mất chi tiết sáng màu → kéo sang trái. Vùng trắng nằm <i>bên trong</i> hình (chữ trắng, mảng trắng có viền bao quanh) được giữ lại.</p>
+    </div>
     <button class="btn ghost full" id="downloadBtn" style="margin-top:14px;">💾 Tải ảnh kết quả</button>
-    <p class="img-hint">AI có thể không hoàn hảo 100% — nếu kết quả chưa ưng, thử sửa lại mô tả ở bước 3 rồi bấm tách lại, hoặc đổi sang ảnh chụp rõ nét/thẳng góc hơn.</p>
+    <p class="img-hint">AI có thể không hoàn hảo 100% — nếu kết quả chưa ưng, thử sửa lại mô tả ở bước 2 rồi bấm tách lại, hoặc đổi sang ảnh chụp rõ nét/thẳng góc hơn.</p>
   </div>
 </div>
 
 <script>
 (function () {
-  var KEY_STORAGE = 'tach_hinh_in_api_key';
   var selectedFile = null;
   var resultDataUrl = null;
 
@@ -138,27 +135,6 @@
     box.innerHTML = html;
   }
   function hideStatus() { $('statusBox').classList.remove('show'); }
-
-  function refreshKeyStatus() {
-    var key = localStorage.getItem(KEY_STORAGE);
-    var el = $('keyStatus');
-    if (key) {
-      el.textContent = 'Đã lưu key (••••' + key.slice(-4) + ') trên máy này.';
-      el.className = 'key-status ok';
-    } else {
-      el.textContent = 'Chưa có key nào được lưu.';
-      el.className = 'key-status none';
-    }
-  }
-  $('apiKeyInput').value = localStorage.getItem(KEY_STORAGE) || '';
-  refreshKeyStatus();
-
-  $('saveKeyBtn').addEventListener('click', function () {
-    var v = $('apiKeyInput').value.trim();
-    if (!v) { localStorage.removeItem(KEY_STORAGE); refreshKeyStatus(); return; }
-    localStorage.setItem(KEY_STORAGE, v);
-    refreshKeyStatus();
-  });
 
   // ---- chọn ảnh ----
   var dropZone = $('dropZone'), fileInput = $('fileInput');
@@ -181,56 +157,201 @@
     if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
   });
 
-  // ---- gọi OpenAI để tách/làm sạch hình in ----
+  // ---- dán ảnh trực tiếp bằng Ctrl+V (copy từ Zalo, Messenger, công cụ chụp màn hình...) ----
+  document.addEventListener('paste', function (e) {
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf('image/') === 0) {
+        var file = items[i].getAsFile();
+        if (file) { handleFile(file); }
+        e.preventDefault();
+        break;
+      }
+    }
+  });
+  dropZone.setAttribute('tabindex', '0');
+  dropZone.addEventListener('click', function () { dropZone.focus(); });
+
+  // Nén/resize ảnh trước khi gửi: vừa nhẹ hơn để gửi lên server, vừa tránh vượt giới hạn dung lượng.
+  function resizeImageToBase64(file, maxDim, cb) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        var ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // JPEG nhẹ hơn PNG nhiều lần -> không vượt giới hạn ~4.5MB của Vercel
+        var dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        cb(dataUrl.split(',')[1], 'image/jpeg');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---- gọi trạm trung gian (api/edit-image) để tách/làm sạch hình in ----
   $('runBtn').addEventListener('click', function () {
-    var apiKey = localStorage.getItem(KEY_STORAGE);
-    if (!apiKey) { showStatus('error', 'Chưa có API key. Dán key vào ô ở Bước 1 rồi bấm Lưu.'); return; }
-    if (!selectedFile) { showStatus('error', 'Chưa chọn ảnh. Chọn ảnh ở Bước 2 trước đã.'); return; }
+    if (!selectedFile) { showStatus('error', 'Chưa chọn ảnh. Chọn ảnh ở Bước 1 trước đã.'); return; }
 
     var prompt = $('promptInput').value.trim();
     var btn = $('runBtn');
     btn.disabled = true;
-    showStatus('info', '<span class="spinner"></span>Đang gửi ảnh cho AI xử lý, có thể mất 15–40 giây...');
+    showStatus('info', '<span class="spinner"></span>Đang nén ảnh và gửi cho AI xử lý, có thể mất 15–40 giây...');
 
-    var form = new FormData();
-    form.append('model', 'gpt-image-1');
-    form.append('image', selectedFile);
-    form.append('prompt', prompt);
-    form.append('size', '1024x1024');
-
-    fetch('https://api.openai.com/v1/images/edits', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + apiKey },
-      body: form
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.json().catch(function () { return {}; }).then(function (errBody) {
-          var msg = (errBody && errBody.error && errBody.error.message) || ('Lỗi HTTP ' + res.status);
-          throw new Error(msg);
+    resizeImageToBase64(selectedFile, 1024, function (base64, mimeType) {
+      fetch('/api/edit-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mimeType: mimeType, prompt: prompt })
+      }).then(function (res) {
+        // Đọc dạng text trước: lỗi 413/504 của Vercel trả về HTML/text chứ không phải JSON
+        return res.text().then(function (text) {
+          var body = null;
+          try { body = JSON.parse(text); } catch (e) {}
+          return { ok: res.ok, status: res.status, body: body };
         });
-      }
-      return res.json();
-    }).then(function (data) {
-      var b64 = data && data.data && data.data[0] && data.data[0].b64_json;
-      if (!b64) throw new Error('Không nhận được ảnh kết quả từ OpenAI.');
-      resultDataUrl = 'data:image/png;base64,' + b64;
-      $('resultPreview').src = resultDataUrl;
-      $('resultCard').style.display = '';
-      showStatus('success', '✅ Xong! Xem kết quả bên dưới.');
-      btn.disabled = false;
-    }).catch(function (err) {
-      btn.disabled = false;
-      var hint = '';
-      if (/CORS|Failed to fetch/i.test(err.message)) {
-        hint = ' (Có thể do trình duyệt chặn gọi thẳng tới OpenAI — báo lại cho người làm app để thêm máy chủ trung gian.)';
-      } else if (/insufficient_quota|billing/i.test(err.message)) {
-        hint = ' (Có thể tài khoản OpenAI chưa thêm phương thức thanh toán hoặc đã hết hạn mức.)';
-      } else if (/invalid_api_key|Incorrect API key/i.test(err.message)) {
-        hint = ' (Kiểm tra lại đã dán đúng/đủ API key chưa.)';
-      }
-      showStatus('error', '❌ Lỗi: ' + esc(err.message) + hint);
+      }).then(function (result) {
+        if (!result.ok) {
+          var fallback = 'Lỗi HTTP ' + result.status;
+          if (result.status === 413) fallback = 'Ảnh quá nặng (lỗi 413). Thử ảnh nhỏ hơn.';
+          if (result.status === 504) fallback = 'AI xử lý quá lâu nên server ngắt (lỗi 504). Bấm thử lại.';
+          if (result.status === 404) fallback = 'Không tìm thấy /api/edit-image (lỗi 404) — kiểm tra file api/edit-image.js đã nằm đúng thư mục api chưa.';
+          throw new Error((result.body && result.body.error) || fallback);
+        }
+        var data = result.body;
+        var b64 = data && data.data && data.data[0] && data.data[0].b64_json;
+        if (!b64) throw new Error('Không nhận được ảnh kết quả.');
+        aiDataUrl = 'data:' + ((data.data[0].mime_type) || 'image/png') + ';base64,' + b64;
+        $('resultCard').style.display = '';
+        loadAiImage(aiDataUrl);
+        showStatus('success', '✅ Xong! Xem kết quả bên dưới.');
+        btn.disabled = false;
+      }).catch(function (err) {
+        btn.disabled = false;
+        var hint = '';
+        if (/Failed to fetch|NetworkError/i.test(err.message)) {
+          hint = ' (Không gọi được tới server — kiểm tra lại đã đẩy đủ file api/edit-image.js lên GitHub chưa.)';
+        } else if (/GEMINI_API_KEY/i.test(err.message)) {
+          hint = ' (Vào Vercel > Settings > Environment Variables thêm biến GEMINI_API_KEY rồi deploy lại.)';
+        } else if (/quota|rate limit|RESOURCE_EXHAUSTED/i.test(err.message)) {
+          hint = ' (Hết hạn mức của Google. Nếu lỗi ghi "limit: 0" nghĩa là model tạo ảnh không có gói miễn phí — cần bật Billing cho project trong AI Studio. Còn không thì đợi một lúc rồi thử lại.)';
+        } else if (/invalid_api_key|API key not valid|PERMISSION_DENIED/i.test(err.message)) {
+          hint = ' (API key trong Vercel Environment Variables không đúng, kiểm tra lại.)';
+        }
+        showStatus('error', '❌ Lỗi: ' + esc(err.message) + hint);
+      });
     });
   });
+
+  // ---- xóa nền trắng thành trong suốt (chạy ngay trên trình duyệt) ----
+  var aiDataUrl = null, aiImg = null, renderTimer = null;
+
+  function loadAiImage(url) {
+    var img = new Image();
+    img.onload = function () { aiImg = img; renderResult(); };
+    img.src = url;
+  }
+
+  function scheduleRender() {
+    $('tolVal').textContent = $('tolRange').value;
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(renderResult, 60);
+  }
+
+  function renderResult() {
+    if (!aiImg) return;
+    var transparent = $('transparentChk').checked;
+    $('tolRow').style.opacity = transparent ? '1' : '.4';
+    $('tolRange').disabled = !transparent;
+    $('trimChk').disabled = !transparent;
+    if (!transparent) {
+      resultDataUrl = aiDataUrl;
+      $('resultPreview').src = resultDataUrl;
+      return;
+    }
+    var canvas = removeBackground(aiImg, +$('tolRange').value, $('trimChk').checked);
+    resultDataUrl = canvas.toDataURL('image/png');
+    $('resultPreview').src = resultDataUrl;
+  }
+
+  // Loang từ mép ảnh vào trong: chỉ xóa vùng nền nối liền với mép,
+  // nên mảng trắng nằm trong hình (có viền bao) vẫn được giữ.
+  function removeBackground(img, tol, trim) {
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0);
+    var id = ctx.getImageData(0, 0, w, h), px = id.data;
+
+    // Màu nền = trung vị các điểm trên mép ảnh
+    var rs = [], gs = [], bs = [];
+    function sample(x, y) { var i = (y * w + x) * 4; rs.push(px[i]); gs.push(px[i + 1]); bs.push(px[i + 2]); }
+    for (var x = 0; x < w; x += 2) { sample(x, 0); sample(x, h - 1); }
+    for (var y = 0; y < h; y += 2) { sample(0, y); sample(w - 1, y); }
+    function median(a) { a.sort(function (p, q) { return p - q; }); return a[a.length >> 1]; }
+    var br = median(rs), bgc = median(gs), bb = median(bs);
+
+    function dist(p) {
+      var i = p * 4;
+      return Math.max(Math.abs(px[i] - br), Math.abs(px[i + 1] - bgc), Math.abs(px[i + 2] - bb));
+    }
+
+    var soft = tol * 1.6;
+    var seen = new Uint8Array(w * h), queue = new Int32Array(w * h), qh = 0, qt = 0;
+    function push(p) { if (!seen[p]) { seen[p] = 1; queue[qt++] = p; } }
+    for (x = 0; x < w; x++) { push(x); push((h - 1) * w + x); }
+    for (y = 0; y < h; y++) { push(y * w); push(y * w + w - 1); }
+
+    while (qh < qt) {
+      var p = queue[qh++], d = dist(p), i = p * 4;
+      if (d <= tol) {
+        px[i + 3] = 0;
+        var px_ = p % w, py_ = (p / w) | 0;
+        if (px_ > 0) push(p - 1);
+        if (px_ < w - 1) push(p + 1);
+        if (py_ > 0) push(p - w);
+        if (py_ < h - 1) push(p + w);
+      } else if (d <= soft) {
+        // Viền mềm: trong suốt một phần + khử ám màu nền để không còn viền trắng
+        var a = (d - tol) / (soft - tol);
+        px[i] = clamp((px[i] - br * (1 - a)) / a);
+        px[i + 1] = clamp((px[i + 1] - bgc * (1 - a)) / a);
+        px[i + 2] = clamp((px[i + 2] - bb * (1 - a)) / a);
+        px[i + 3] = Math.round(a * 255);
+      }
+    }
+    ctx.putImageData(id, 0, 0);
+    if (!trim) return c;
+
+    // Cắt sát phần hình còn lại (chừa 8px)
+    var minX = w, minY = h, maxX = -1, maxY = -1;
+    for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
+      if (px[(y * w + x) * 4 + 3] > 10) {
+        if (x < minX) minX = x; if (x > maxX) maxX = x;
+        if (y < minY) minY = y; if (y > maxY) maxY = y;
+      }
+    }
+    if (maxX < 0) return c;
+    var pad = 8;
+    minX = Math.max(0, minX - pad); minY = Math.max(0, minY - pad);
+    maxX = Math.min(w - 1, maxX + pad); maxY = Math.min(h - 1, maxY + pad);
+    var out = document.createElement('canvas');
+    out.width = maxX - minX + 1; out.height = maxY - minY + 1;
+    out.getContext('2d').drawImage(c, minX, minY, out.width, out.height, 0, 0, out.width, out.height);
+    return out;
+  }
+  function clamp(v) { return v < 0 ? 0 : v > 255 ? 255 : Math.round(v); }
+
+  $('transparentChk').addEventListener('change', renderResult);
+  $('trimChk').addEventListener('change', renderResult);
+  $('tolRange').addEventListener('input', scheduleRender);
 
   $('downloadBtn').addEventListener('click', function () {
     if (!resultDataUrl) return;

@@ -37,11 +37,6 @@
     font-family: var(--font-body); background: var(--paper); color: var(--ink);
   }
   .field-row textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
-  .key-row { display: flex; gap: 8px; align-items: flex-end; }
-  .key-row .field-row { flex: 1; margin-bottom: 0; }
-  .key-status { font-size: 12px; margin-top: 8px; }
-  .key-status.ok { color: var(--ok); }
-  .key-status.none { color: var(--ink-soft); }
 
   button.btn { font-family: var(--font-body); font-weight: 600; font-size: 13.5px; border-radius: var(--radius-pill); padding: 10px 18px; border: 1px solid transparent; cursor: pointer; }
   button.btn.primary { background: var(--denim); color: #fff; }
@@ -86,20 +81,7 @@
   </header>
 
   <div class="card">
-    <h2><span><span class="step-num">1</span>Mã API key (OpenAI)</span></h2>
-    <div class="key-row">
-      <div class="field-row">
-        <label>Dán API key của anh (chỉ lưu trên máy này, không gửi đi đâu khác ngoài OpenAI)</label>
-        <input type="password" id="apiKeyInput" placeholder="sk-...">
-      </div>
-      <button class="btn primary" id="saveKeyBtn">Lưu</button>
-    </div>
-    <div class="key-status none" id="keyStatus">Chưa có key nào được lưu.</div>
-    <p class="img-hint">Chưa có key? Lấy tại <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a> (cần thêm phương thức thanh toán trước ở mục Billing).</p>
-  </div>
-
-  <div class="card">
-    <h2><span><span class="step-num">2</span>Ảnh chụp áo</span></h2>
+    <h2><span><span class="step-num">1</span>Ảnh chụp áo</span></h2>
     <div class="drop-zone" id="dropZone">
       <input type="file" id="fileInput" accept="image/*">
       <div id="dropZoneContent"><div class="dz-icon">🖼️</div>Bấm hoặc kéo ảnh vào đây<br><span style="font-size:11.5px;">(hoặc bấm vào đây rồi nhấn Ctrl+V để dán ảnh đã copy)</span></div>
@@ -107,7 +89,7 @@
   </div>
 
   <div class="card">
-    <h2><span><span class="step-num">3</span>Mô tả cho AI (có thể để mặc định)</span></h2>
+    <h2><span><span class="step-num">2</span>Mô tả cho AI (có thể để mặc định)</span></h2>
     <div class="field-row">
       <textarea id="promptInput">Trích xuất và làm sạch hình in trên áo trong ảnh này. Yêu cầu: chỉ giữ lại đúng phần hình in (bỏ hoàn toàn áo, nền, bóng đổ), làm phẳng hình như đang nhìn thẳng vào mặt phẳng (loại bỏ méo do nếp nhăn vải), giữ nguyên màu sắc và chi tiết gốc, nền trong suốt hoặc trắng trơn, phong cách sạch như file thiết kế gốc để đưa đi in.</textarea>
     </div>
@@ -128,7 +110,6 @@
 
 <script>
 (function () {
-  var KEY_STORAGE = 'tach_hinh_in_api_key';
   var selectedFile = null;
   var resultDataUrl = null;
 
@@ -139,27 +120,6 @@
     box.innerHTML = html;
   }
   function hideStatus() { $('statusBox').classList.remove('show'); }
-
-  function refreshKeyStatus() {
-    var key = localStorage.getItem(KEY_STORAGE);
-    var el = $('keyStatus');
-    if (key) {
-      el.textContent = 'Đã lưu key (••••' + key.slice(-4) + ') trên máy này.';
-      el.className = 'key-status ok';
-    } else {
-      el.textContent = 'Chưa có key nào được lưu.';
-      el.className = 'key-status none';
-    }
-  }
-  $('apiKeyInput').value = localStorage.getItem(KEY_STORAGE) || '';
-  refreshKeyStatus();
-
-  $('saveKeyBtn').addEventListener('click', function () {
-    var v = $('apiKeyInput').value.trim();
-    if (!v) { localStorage.removeItem(KEY_STORAGE); refreshKeyStatus(); return; }
-    localStorage.setItem(KEY_STORAGE, v);
-    refreshKeyStatus();
-  });
 
   // ---- chọn ảnh ----
   var dropZone = $('dropZone'), fileInput = $('fileInput');
@@ -197,54 +157,67 @@
   dropZone.setAttribute('tabindex', '0');
   dropZone.addEventListener('click', function () { dropZone.focus(); });
 
-  // ---- gọi OpenAI để tách/làm sạch hình in ----
+  // Nén/resize ảnh trước khi gửi: vừa nhẹ hơn để gửi lên server, vừa tránh vượt giới hạn dung lượng.
+  function resizeImageToBase64(file, maxDim, cb) {
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+        var canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        var dataUrl = canvas.toDataURL('image/png');
+        cb(dataUrl.split(',')[1], 'image/png');
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  // ---- gọi trạm trung gian (api/edit-image) để tách/làm sạch hình in ----
   $('runBtn').addEventListener('click', function () {
-    var apiKey = localStorage.getItem(KEY_STORAGE);
-    if (!apiKey) { showStatus('error', 'Chưa có API key. Dán key vào ô ở Bước 1 rồi bấm Lưu.'); return; }
-    if (!selectedFile) { showStatus('error', 'Chưa chọn ảnh. Chọn ảnh ở Bước 2 trước đã.'); return; }
+    if (!selectedFile) { showStatus('error', 'Chưa chọn ảnh. Chọn ảnh ở Bước 1 trước đã.'); return; }
 
     var prompt = $('promptInput').value.trim();
     var btn = $('runBtn');
     btn.disabled = true;
-    showStatus('info', '<span class="spinner"></span>Đang gửi ảnh cho AI xử lý, có thể mất 15–40 giây...');
+    showStatus('info', '<span class="spinner"></span>Đang nén ảnh và gửi cho AI xử lý, có thể mất 15–40 giây...');
 
-    var form = new FormData();
-    form.append('model', 'gpt-image-1');
-    form.append('image', selectedFile);
-    form.append('prompt', prompt);
-    form.append('size', '1024x1024');
-
-    fetch('https://api.openai.com/v1/images/edits', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + apiKey },
-      body: form
-    }).then(function (res) {
-      if (!res.ok) {
-        return res.json().catch(function () { return {}; }).then(function (errBody) {
-          var msg = (errBody && errBody.error && errBody.error.message) || ('Lỗi HTTP ' + res.status);
-          throw new Error(msg);
-        });
-      }
-      return res.json();
-    }).then(function (data) {
-      var b64 = data && data.data && data.data[0] && data.data[0].b64_json;
-      if (!b64) throw new Error('Không nhận được ảnh kết quả từ OpenAI.');
-      resultDataUrl = 'data:image/png;base64,' + b64;
-      $('resultPreview').src = resultDataUrl;
-      $('resultCard').style.display = '';
-      showStatus('success', '✅ Xong! Xem kết quả bên dưới.');
-      btn.disabled = false;
-    }).catch(function (err) {
-      btn.disabled = false;
-      var hint = '';
-      if (/CORS|Failed to fetch/i.test(err.message)) {
-        hint = ' (Có thể do trình duyệt chặn gọi thẳng tới OpenAI — báo lại cho người làm app để thêm máy chủ trung gian.)';
-      } else if (/insufficient_quota|billing/i.test(err.message)) {
-        hint = ' (Có thể tài khoản OpenAI chưa thêm phương thức thanh toán hoặc đã hết hạn mức.)';
-      } else if (/invalid_api_key|Incorrect API key/i.test(err.message)) {
-        hint = ' (Kiểm tra lại đã dán đúng/đủ API key chưa.)';
-      }
-      showStatus('error', '❌ Lỗi: ' + esc(err.message) + hint);
+    resizeImageToBase64(selectedFile, 1024, function (base64, mimeType) {
+      fetch('/api/edit-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mimeType: mimeType, prompt: prompt })
+      }).then(function (res) {
+        return res.json().then(function (body) { return { ok: res.ok, status: res.status, body: body }; });
+      }).then(function (result) {
+        if (!result.ok) {
+          throw new Error((result.body && result.body.error) || ('Lỗi HTTP ' + result.status));
+        }
+        var data = result.body;
+        var b64 = data && data.data && data.data[0] && data.data[0].b64_json;
+        if (!b64) throw new Error('Không nhận được ảnh kết quả.');
+        resultDataUrl = 'data:image/png;base64,' + b64;
+        $('resultPreview').src = resultDataUrl;
+        $('resultCard').style.display = '';
+        showStatus('success', '✅ Xong! Xem kết quả bên dưới.');
+        btn.disabled = false;
+      }).catch(function (err) {
+        btn.disabled = false;
+        var hint = '';
+        if (/Failed to fetch|NetworkError/i.test(err.message)) {
+          hint = ' (Không gọi được tới server — kiểm tra lại đã đẩy đủ file api/edit-image.js lên GitHub chưa.)';
+        } else if (/OPENAI_API_KEY/i.test(err.message)) {
+          hint = ' (Vào Vercel > Settings > Environment Variables thêm biến OPENAI_API_KEY rồi deploy lại.)';
+        } else if (/insufficient_quota|billing/i.test(err.message)) {
+          hint = ' (Tài khoản OpenAI chưa thêm phương thức thanh toán hoặc đã hết hạn mức.)';
+        } else if (/invalid_api_key|Incorrect API key/i.test(err.message)) {
+          hint = ' (API key trong Vercel Environment Variables không đúng, kiểm tra lại.)';
+        }
+        showStatus('error', '❌ Lỗi: ' + esc(err.message) + hint);
+      });
     });
   });
 
